@@ -1,0 +1,264 @@
+{
+  "name": "AI Resume Reviewer",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "AI Resume Reviewer",
+        "formDescription": "Upload your resume in pdf format and receive an AI-Powered Review. ",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Enter your email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Upload your resume here",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ac71c068-9140-4997-a49a-32dc236d55ee",
+      "name": "On form submission",
+      "webhookId": "c1cfb951-80eb-4807-a480-22311b4e65db"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Upload_your_resume_here",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "f267ea78-230b-4835-b326-e8a228920cae",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert ATS Resume Reviewer.\n\nAnalyze the following resume.\n\nReturn ONLY valid JSON.\nDo not use markdown.\nDo not use triple backticks.\nDo not explain anything outside the JSON.\n\nReturn this exact structure:\n\n{\n  \"ats_score\": 72,\n  \"professional_summary\": \"\",\n  \"strengths\": [],\n  \"weaknesses\": [],\n  \"missing_skills\": [],\n  \"suggestions\": []\n}\n\nRules:\n- ats_score must be a number between 0 and 100.\n- strengths should contain 3-5 points.\n- weaknesses should contain 3-5 points.\n- missing_skills should contain important missing skills.\n- suggestions should contain practical improvements.\n\nResume:\n\n{{ $json.text }}",
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        416,
+        0
+      ],
+      "id": "3e1d29c5-c268-49ba-841b-295ac596c5b7",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        352,
+        208
+      ],
+      "id": "365e9acb-ff6a-4358-a861-5573cbe5acae",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "OnCHAkUXqleoTGNm",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = JSON.parse($input.first().json.text);\n\nreturn [\n  {\n    json: aiResponse\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        0
+      ],
+      "id": "f4be0824-437e-4f02-8fdd-a361e4d9668c",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nconst html = `\n<!DOCTYPE html>\n<html>\n<head>\n<style>\nbody{\n    font-family:Arial,sans-serif;\n    background:#f4f4f4;\n    padding:30px;\n}\n.container{\n    max-width:700px;\n    margin:auto;\n    background:white;\n    border-radius:10px;\n    padding:30px;\n    box-shadow:0 0 10px rgba(0,0,0,.1);\n}\nh1{\n    color:#2c3e50;\n}\n.score{\n    font-size:32px;\n    color:#27ae60;\n    font-weight:bold;\n}\nul{\n    padding-left:20px;\n}\nli{\n    margin-bottom:8px;\n}\n.section{\n    margin-top:25px;\n}\n</style>\n</head>\n\n<body>\n\n<div class=\"container\">\n\n<h1>🤖 AI Resume Review</h1>\n\n<p class=\"score\">\nATS Score: ${data.ats_score}/100\n</p>\n\n<div class=\"section\">\n<h2>Professional Summary</h2>\n<p>${data.professional_summary}</p>\n</div>\n\n<div class=\"section\">\n<h2>✅ Strengths</h2>\n<ul>\n${data.strengths.map(item=>`<li>${item}</li>`).join(\"\")}\n</ul>\n</div>\n\n<div class=\"section\">\n<h2>⚠ Weaknesses</h2>\n<ul>\n${data.weaknesses.map(item=>`<li>${item}</li>`).join(\"\")}\n</ul>\n</div>\n\n<div class=\"section\">\n<h2>📚 Missing Skills</h2>\n<ul>\n${data.missing_skills.map(item=>`<li>${item}</li>`).join(\"\")}\n</ul>\n</div>\n\n<div class=\"section\">\n<h2>💡 Suggestions</h2>\n<ul>\n${data.suggestions.map(item=>`<li>${item}</li>`).join(\"\")}\n</ul>\n</div>\n\n</div>\n\n</body>\n</html>\n`;\n\nreturn [{\n    json:{\n        ...data,\n        emailBody: html\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "fb55051a-09f8-4385-9189-2fa7f82aafe5",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$node[\"On form submission\"].json[\"Enter your email\"]}}",
+        "subject": "You AI Resume Review Report",
+        "message": "={{$json.emailBody}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "08fb08de-7035-45c1-8362-1c2d324eab6a",
+      "name": "Send a message",
+      "webhookId": "48269cbd-6193-45a0-9a82-238a2650b819",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "smPZCRtVojpIRciW",
+          "name": "Gmail account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Code in JavaScript": [
+      {
+        "json": {
+          "ats_score": 78,
+          "professional_summary": "Software Engineering student with a strong foundation in full-stack web and mobile development. Experienced in using modern frameworks like React, Next.js, and Flutter, with a focus on building scalable, user-centric applications. Proven ability to implement complex features such as real-time messaging, AI-powered content classification, and cross-platform integrations.",
+          "strengths": [
+            "Strong technical stack across Web, Mobile, and AI domains (Python, React, Flutter, Node.js).",
+            "High academic achievement with a 3.70 GPA in Software Engineering.",
+            "Diverse project portfolio demonstrating experience with advanced technologies like WebRTC, WebSockets, and Transformers.",
+            "Clean, standard resume layout with clear headings and professional contact links.",
+            "Strong foundation in both frontend (UI/UX, Tailwind) and backend (MongoDB, Firebase, FastAPI) technologies."
+          ],
+          "weaknesses": [
+            "Absence of formal professional experience or internships in a software development environment.",
+            "Inclusion of 'MS Office' which is considered a filler skill for high-level technical roles.",
+            "High school (FSc) details consume space that could be used for more technical achievements or certifications.",
+            "Lack of quantifiable metrics in project descriptions (e.g., user count, performance speed, or accuracy rates).",
+            "No mention of automated testing, CI/CD, or containerization tools."
+          ],
+          "missing_skills": [
+            "Docker / Kubernetes",
+            "Cloud Platforms (AWS, Azure, or GCP)",
+            "Unit Testing (Jest, PyTest, or Mocha)",
+            "CI/CD Pipelines",
+            "SQL (PostgreSQL/Postgres)",
+            "System Design"
+          ],
+          "suggestions": [
+            "Prioritize seeking a technical internship to bridge the gap between academic projects and professional experience.",
+            "Remove the FSc - Pre Medical section as the current university degree makes it redundant for software roles.",
+            "Add a 'Certifications' section for any completed online courses (e.g., Coursera, Udemy, or LinkedIn Learning).",
+            "Quantify the impact of projects, such as 'Achieved 90% accuracy in image classification' or 'Optimized API response time by 20%'.",
+            "Group the Skills section into sub-categories (e.g., Languages, Frameworks, Databases, Tools) to improve readability for recruiters."
+          ]
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "17cb0eba-96eb-40a9-8e3f-35458a89c9ce",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "55978efa5ba5b84b826dec9a2bb3f578cfe245a0cda987d36467aa858edcae99"
+  },
+  "nodeGroups": [],
+  "id": "6lBnteeafbNKR2eX",
+  "tags": []
+}
